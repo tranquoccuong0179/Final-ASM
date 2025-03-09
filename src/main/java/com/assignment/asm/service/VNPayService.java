@@ -4,6 +4,7 @@ import com.assignment.asm.config.VNPayConfig;
 import com.assignment.asm.model.Order;
 import com.assignment.asm.repository.OrderRepository;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.RandomStringUtils;
@@ -11,6 +12,7 @@ import org.camunda.bpm.engine.TaskService;
 import org.camunda.bpm.engine.task.Task;
 import org.springframework.stereotype.Service;
 
+import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
@@ -64,7 +66,7 @@ public class VNPayService implements IVNPayService {
         vnp_Params.put("vnp_CurrCode", VNPayConfig.vnp_CurrCode);
         vnp_Params.put("vnp_IpAddr", VNPayConfig.getIpAddress(request));
         vnp_Params.put("vnp_Locale", VNPayConfig.vnp_Locale);
-        vnp_Params.put("vnp_OrderInfo", "Nạp tiền");
+        vnp_Params.put("vnp_OrderInfo", String.valueOf(order.getId()));
         vnp_Params.put("vnp_OrderType", VNPayConfig.getIpAddress(request));
         vnp_Params.put("vnp_ReturnUrl", VNPayConfig.vnp_ReturnUrl);
         vnp_Params.put("vnp_TxnRef", "HD" + RandomStringUtils.randomNumeric(6) + "-" + vnp_CreateDate);
@@ -98,4 +100,56 @@ public class VNPayService implements IVNPayService {
 
         return paymentUrl;
     }
+
+    public boolean processPaymentCallback(Map<String, String> queryParams, HttpServletResponse response) throws IOException {
+        try {
+            String vnp_ResponseCode = queryParams.get("vnp_ResponseCode");
+            Long orderId = Long.parseLong(queryParams.get("vnp_OrderInfo"));
+            long vnp_Amount = Long.parseLong(queryParams.get("vnp_Amount")) / 100;
+
+            Optional<Order> orderOpt = orderRepository.findById(orderId);
+            if (orderOpt.isEmpty()) {
+                log.error("Order not found for ID: {}", orderId);
+                response.sendRedirect("https://yourfrontend.com/payment/failed/" + orderId);
+                return false;
+            }
+
+            Order order = orderOpt.get();
+            Task task = taskService.createTaskQuery()
+                    .processInstanceBusinessKey(order.getBusinessKey())
+                    .taskDefinitionKey("Activity_Order_Payment")
+                    .singleResult();
+
+            if (task != null) {
+                Map<String, Object> variables = new HashMap<>();
+                try {
+                    String jsonResponse = objectMapper.writeValueAsString(order);
+                    variables.put("orderResponse", jsonResponse);
+
+                    if ("00".equals(vnp_ResponseCode)) {
+                        variables.put("order", "success");
+                        taskService.complete(task.getId(), variables);
+                        response.sendRedirect("https://yourfrontend.com/payment/success/" + orderId);
+                        return true;
+                    } else {
+                        variables.put("order", "failed");
+                        taskService.complete(task.getId(), variables);
+                        response.sendRedirect("https://yourfrontend.com/payment/failed/" + orderId);
+                        return false;
+                    }
+                } catch (Exception e) {
+                    log.error("Error processing order task: ", e);
+                }
+            } else {
+                log.warn("Do not find task với businessKey: {}", order.getBusinessKey());
+            }
+
+        } catch (Exception e) {
+            log.error("Error processing VNPay callback: ", e);
+            response.sendRedirect("https://yourfrontend.com/payment/failed/");
+        }
+
+        return false;
+    }
+
 }
