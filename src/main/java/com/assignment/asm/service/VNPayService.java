@@ -5,7 +5,10 @@ import com.assignment.asm.model.Order;
 import com.assignment.asm.repository.OrderRepository;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.RandomStringUtils;
+import org.camunda.bpm.engine.TaskService;
+import org.camunda.bpm.engine.task.Task;
 import org.springframework.stereotype.Service;
 
 import java.io.UnsupportedEncodingException;
@@ -14,16 +17,39 @@ import java.nio.charset.StandardCharsets;
 import java.text.SimpleDateFormat;
 import java.util.*;
 
+import static org.camunda.bpm.admin.impl.plugin.resources.MetricsRestService.objectMapper;
+
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class VNPayService implements IVNPayService {
     private final OrderRepository orderRepository;
+    private final TaskService taskService;
     public String payWithVNPAYOnline(HttpServletRequest request, String businessKey) throws UnsupportedEncodingException {
 
-        Optional<Order> order = orderRepository.findByBusinessKey(businessKey);
+        Order order = orderRepository.findByBusinessKey(businessKey).get();
+        Task task = taskService.createTaskQuery()
+                .processInstanceBusinessKey(businessKey)
+                .taskDefinitionKey("Activity_Order_Payment")
+                .singleResult();
+
+        if (task != null) {
+            Map<String, Object> variables = new HashMap<>();
+            try {
+                String jsonResponse = objectMapper.writeValueAsString(order);
+                variables.put("orderResponse", jsonResponse);
+//                variables.put("order", "success");
+
+                taskService.complete(task.getId(), variables);
+            } catch (Exception e) {
+                log.error("Error processing order task: ", e);
+            }
+        } else {
+            log.warn("Do not find task với businessKey: {}", businessKey);
+        }
         Calendar cld = Calendar.getInstance(TimeZone.getTimeZone("Etc/GMT+7"));
 
-        int totalPrice = (int) Math.round(order.get().getTotalPrice() * 100);
+        long totalPrice = Math.round(order.getTotalPrice() * 100);
         SimpleDateFormat formatter = new SimpleDateFormat("yyyyMMddHHmmss");
         String vnp_CreateDate = formatter.format(cld.getTime());
         cld.add(Calendar.MINUTE, 10);
