@@ -1,0 +1,42 @@
+spring:
+    application:
+        name: asm
+    datasource:
+        url: jdbc:postgresql://localhost:6543/custom-provider
+        username: postgres
+        password: 12345
+    jpa:
+        database-platform: org.hibernate.dialect.PostgreSQLDialect
+        hibernate:
+            ddl-auto: update
+        show-sql: true
+    security:
+        oauth2:
+            resourceserver:
+                jwt:
+                    issuer-uri: http://localhost:9090/realms/Provider-User
+    mail:
+        host: smtp.gmail.com
+        port: 587
+        username: cuongtqse160059@fpt.edu.vn
+        password: ceaplovngczxtmro
+        default-encoding: UTF-8
+        properties:
+            mail:
+                smtp:
+                    auth: true
+                    starttls:
+                        enable: true
+camunda:
+    bpm:
+        admin-user:
+            id: demo
+            password: demo
+server:
+    port: 8080
+idp:
+    url: http://localhost:9090
+    client-id: assignment_app
+    client-secret: zHGtRSVqDYszbKGraMqgnTlnunYc50wY
+keycloak:
+    realm: Provider-User
