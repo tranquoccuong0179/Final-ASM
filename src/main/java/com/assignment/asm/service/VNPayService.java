@@ -30,25 +30,25 @@ public class VNPayService implements IVNPayService {
     public String payWithVNPAYOnline(HttpServletRequest request, String businessKey) throws UnsupportedEncodingException {
 
         Order order = orderRepository.findByBusinessKey(businessKey).get();
-        Task task = taskService.createTaskQuery()
-                .processInstanceBusinessKey(businessKey)
-                .taskDefinitionKey("Activity_Order_Payment")
-                .singleResult();
-
-        if (task != null) {
-            Map<String, Object> variables = new HashMap<>();
-            try {
-                String jsonResponse = objectMapper.writeValueAsString(order);
-                variables.put("orderResponse", jsonResponse);
-//                variables.put("order", "success");
-
-                taskService.complete(task.getId(), variables);
-            } catch (Exception e) {
-                log.error("Error processing order task: ", e);
-            }
-        } else {
-            log.warn("Do not find task với businessKey: {}", businessKey);
-        }
+    //        Task task = taskService.createTaskQuery()
+    //                .processVariableValueEquals("businessKey", businessKey)
+    ////                .processInstanceBusinessKey(businessKey)
+    //                .singleResult();
+    //
+    //
+    //        if (task != null) {
+    //            Map<String, Object> variables = new HashMap<>();
+    //            try {
+    //                String jsonResponse = objectMapper.writeValueAsString(order);
+    //                variables.put("orderResponse", jsonResponse);
+    //
+    //                taskService.complete(task.getId(), variables);
+    //            } catch (Exception e) {
+    //                log.error("Error processing order task: ", e);
+    //            }
+    //        } else {
+    //            log.warn("Do not find task với businessKey: {}", businessKey);
+    //        }
         Calendar cld = Calendar.getInstance(TimeZone.getTimeZone("Etc/GMT+7"));
 
         long totalPrice = Math.round(order.getTotalPrice() * 100);

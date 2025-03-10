@@ -37,6 +37,6 @@ server:
 idp:
     url: http://localhost:9090
     client-id: assignment_app
-    client-secret: zHGtRSVqDYszbKGraMqgnTlnunYc50wY
+    client-secret: 4nBORgNvRkSDn0pJmkwAgbkFkx0KoXY7
 keycloak:
     realm: Provider-User
